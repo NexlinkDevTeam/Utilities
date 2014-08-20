@@ -1,22 +1,20 @@
 package com.nexlink.utilites;
 
-import java.io.File;
 import java.util.HashMap;
 
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
-import android.os.Build;
 import android.os.Bundle;
 
 import com.nexlink.utilites.Shell.ShellException;
 
-public class SystemApp {
+public class SystemUtils {
 	/*
-	 * 0 = No, 1 = System App, 2 = Updated System App
+	 * 0 = No, 1 = SystemUtils App, 2 = Updated SystemUtils App
 	 */
+	
 	public static int isSystemApp(Context context, String packageName){
 		int type = 0;
 		ApplicationInfo ai = null;
@@ -34,7 +32,7 @@ public class SystemApp {
 		return type;
 	}
 	
-	public static String grantTempPermissions(String packageName, String[] permissions){
+	public static String grantPermissions(String packageName, String[] permissions){
 		String out = "";
 		String cmd = "pm grant " + packageName;
 		for(String permission : permissions){
@@ -46,31 +44,20 @@ public class SystemApp {
 		return out;
 	}
 	
-	public static boolean installAsSystemApp(String apkPath, String apkName, boolean restart){
-		boolean success = false;
-		String sysapkpath = (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT ? "/system/app/" : "/system/priv-app/") + apkName/*apkpath.substring(apkpath.lastIndexOf("/")+1, apkpath.length())*/;
-		try {
-			Shell.sudo("mount -o rw,remount /system;");
-			//Remove the old version
-			if(new File("/system/app/NexlinkStatusBar.apk").exists()){
-				Shell.sudo("rm /system/app/" + apkName);
-			}
-			if(new File("/system/priv-app/" + apkName).exists()){
-				Shell.sudo("rm /system/priv-app/" + apkName);
-			}
-			
-			Shell.sudo(
-					"cp " + apkPath + " " + sysapkpath 
-					+ ";rm " + apkPath 
-					+ ";chmod 644 " + sysapkpath 
-					+ ";chown 0.0 " + sysapkpath
-					+ ";mount -o ro,remount /system"
-					+ ";sync"
-					+ (restart ? ";stop;start" : "")
-					);
-			success = new File(sysapkpath).exists() && !new File(apkPath).exists();
-		} catch (ShellException e) {System.out.println(e.getMessage());}
-		return success;
+	public static void shutdown(boolean reboot){
+		if(Shell.su()){
+			try {
+				Shell.sudo(reboot ? "reboot" : "reboot -p");
+			} catch (ShellException e) {}
+		}
+	}
+	
+	public static void restartVM(){
+		if(Shell.su()){
+			try {
+				Shell.sudo("restart");
+			} catch (ShellException e) {}
+		}
 	}
 	
 	public static void sendProtectedBroadcast(Intent i){
