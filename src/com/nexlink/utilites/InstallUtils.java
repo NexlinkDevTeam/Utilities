@@ -3,6 +3,8 @@ package com.nexlink.utilites;
 import java.io.File;
 import java.util.List;
 
+import com.nexlink.utilites.Shell.ShellException;
+
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
@@ -46,60 +48,85 @@ public final class InstallUtils {
 		return packageInfo != null ? isInstalled(packageInfo.packageName, packageInfo.versionCode) : false;
 	}
 	
-	public void installNormal(File apkFile){
+	public boolean installIntent(File apkFile){
 		Intent intent = new Intent(Intent.ACTION_VIEW).setDataAndType(Uri.fromFile(apkFile), "application/vnd.android.package-archive");
         intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         mContext.startActivity(intent);
+        return true;
 	}
 	
-	public boolean installRoot(File apkFile, boolean system) throws Exception{
+	public boolean installAPI(File apkFile){
+		try{
+		    mContext.getPackageManager().installPackage(Uri.fromFile(apkFile), null, PackageManager.INSTALL_REPLACE_EXISTING | PackageManager.INSTALL_ALLOW_TEST | PackageManager.INSTALL_ALLOW_DOWNGRADE, mContext.getPackageName());
+		}catch(SecurityException e){return false;}
+		return isInstalled(apkFile);
+	}
+	
+	public boolean installRoot(File apkFile, boolean system){
 		boolean success = false;
 		PackageInfo packageInfo = getPackageInfoFromFile(apkFile);
+		if(isInstalled(packageInfo.packageName)){
+			uninstallRoot(packageInfo.packageName);
+		}
         if(!system){
-            Shell.sudo("pm install -r -d -t " + apkFile.getAbsolutePath());
+            try {
+				Shell.sudo("pm install -r -d -t " + apkFile.getAbsolutePath());
+			} catch (ShellException e) {}
             success = isInstalled(apkFile);
         }
         else{
             String path = (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT ? "/system/app/" : "/system/priv-app/") + packageInfo.packageName + ".apk";
-            Shell.sudo(
-            "mount -o rw,remount /system"
-            + ";cp " + apkFile.getAbsolutePath() + " " + path
-            + ";chmod 644 " + path
-            + ";chown 0.0 " + path
-            + ";mount -o ro,remount /system"
-            + ";sync"
-            );
+            try {
+				Shell.sudo(
+				"mount -o rw,remount /system"
+				+ ";cp " + apkFile.getAbsolutePath() + " " + path
+				+ ";chmod 644 " + path
+				+ ";chown 0.0 " + path
+				+ ";mount -o ro,remount /system"
+				+ ";sync"
+				);
+			} catch (ShellException e) {}
             File copied = new File(path);
             success = copied.exists() && copied.isFile();
         }
 		return success;
 	}
 	
-	public void uninstallNormal(String packageName){
+	public boolean uninstallIntent(String packageName){
 		Intent intent = new Intent(Intent.ACTION_DELETE, Uri.fromParts("package", packageName, null));
 	    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
 		mContext.startActivity(intent);
+		return true;
 	}
 	
-	public boolean uninstallRoot(String packageName) throws Exception{
+	public boolean uninstallAPI(String packageName){
+		try{
+		    mContext.getPackageManager().deletePackage(packageName, null, PackageManager.DELETE_ALL_USERS);
+		}catch(SecurityException e){return false;}
+		return !isInstalled(packageName);
+	}
+	
+	public boolean uninstallRoot(String packageName){
 		boolean success = false;
-		String path = mPackageManager.getPackageInfo(packageName, 0).applicationInfo.sourceDir;
-		if(path.indexOf("/system/") != 0){
-		    Shell.sudo("pm uninstall " + packageName);
-		    success = !isInstalled(packageName);
-		}
-		else{
-		    Shell.sudo(
-		           "mount -o rw,remount /system"
-		            + ";chmod 644 " + path
-		            + ";chown 0.0 " + path
-		            + ";rm " + path
-		            + ";mount -o ro,remount /system"
-		            + ";sync"
-		            );
-		    File removed = new File(path);
-		    success = !removed.exists();
+		try{
+		    String path = mPackageManager.getPackageInfo(packageName, 0).applicationInfo.sourceDir;
+		    if(path.indexOf("/system/") != 0){
+		        Shell.sudo("pm uninstall " + packageName);
+		        success = !isInstalled(packageName);
 		    }
+		    else{
+		        Shell.sudo(
+		               "mount -o rw,remount /system"
+		                + ";chmod 644 " + path
+		                + ";chown 0.0 " + path
+		                + ";rm " + path
+		                + ";mount -o ro,remount /system"
+		                + ";sync"
+		                );
+		        File removed = new File(path);
+		        success = !removed.exists();
+		        }
+		}catch(Exception e){}
 		return success;
 	}
 }
