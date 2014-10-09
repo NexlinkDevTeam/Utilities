@@ -9,6 +9,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
+import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
 import android.os.Build;
 
@@ -32,13 +33,11 @@ public final class InstallUtils {
 	}
 	
 	public boolean isInstalled(String packageName, int versionCode){
-		List<PackageInfo> packageList = mPackageManager.getInstalledPackages(0);
-		for(PackageInfo packageInfo : packageList){
-			if(packageInfo.packageName.equals(packageName) && (versionCode == -1 || packageInfo.versionCode == versionCode)){
-				return true;
-			}
-		}
-		return false;
+		PackageInfo packageInfo = null;
+		try {
+			packageInfo = mPackageManager.getPackageInfo(packageName, 0);
+		} catch (NameNotFoundException e) {}
+		return packageInfo != null && (versionCode == -1 || packageInfo.versionCode == versionCode);
 	}
 	public boolean isInstalled(String packageName){
 		return isInstalled(packageName, -1);
@@ -71,8 +70,8 @@ public final class InstallUtils {
         if(!system){
             try {
 				Shell.sudo("pm install -r -d -t " + apkFile.getAbsolutePath());
-			} catch (ShellException e) {}
-            success = isInstalled(apkFile);
+				success = true;
+			} catch (Exception e) {}
         }
         else{
             String path = (Build.VERSION.SDK_INT < Build.VERSION_CODES.KITKAT ? "/system/app/" : "/system/priv-app/") + packageInfo.packageName + ".apk";
