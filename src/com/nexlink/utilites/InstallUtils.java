@@ -1,9 +1,6 @@
 package com.nexlink.utilites;
 
 import java.io.File;
-import java.util.List;
-
-import com.nexlink.utilites.Shell.ShellException;
 
 import android.content.Context;
 import android.content.Intent;
@@ -12,6 +9,8 @@ import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.net.Uri;
 import android.os.Build;
+
+import com.nexlink.utilites.Shell.ShellException;
 
 public final class InstallUtils {
 	
@@ -61,12 +60,9 @@ public final class InstallUtils {
 		return isInstalled(apkFile);
 	}
 	
-	public boolean installRoot(File apkFile, boolean system){
+	public boolean installRoot(File apkFile, boolean system, boolean restart){
 		boolean success = false;
 		PackageInfo packageInfo = getPackageInfoFromFile(apkFile);
-		if(isInstalled(packageInfo.packageName)){
-			uninstallRoot(packageInfo.packageName);
-		}
         if(!system){
             try {
 				Shell.sudo("pm install -r -d -t " + apkFile.getAbsolutePath());
@@ -82,7 +78,7 @@ public final class InstallUtils {
 				+ ";chmod 644 " + path
 				+ ";chown 0.0 " + path
 				+ ";mount -o ro,remount /system"
-				+ ";sync"
+				+ ";sync" + (restart ? ";restart" : "")
 				);
 			} catch (ShellException e) {}
             File copied = new File(path);
@@ -105,7 +101,7 @@ public final class InstallUtils {
 		return !isInstalled(packageName);
 	}
 	
-	public boolean uninstallRoot(String packageName){
+	public boolean uninstallRoot(String packageName, boolean restart){
 		boolean success = false;
 		try{
 		    String path = mPackageManager.getPackageInfo(packageName, 0).applicationInfo.sourceDir;
@@ -120,7 +116,7 @@ public final class InstallUtils {
 		                + ";chown 0.0 " + path
 		                + ";rm " + path
 		                + ";mount -o ro,remount /system"
-		                + ";sync"
+		                + ";sync" + (restart ? ";restart" : "")
 		                );
 		        File removed = new File(path);
 		        success = !removed.exists();
